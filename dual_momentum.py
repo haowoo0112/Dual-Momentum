@@ -39,8 +39,10 @@ def find_closing_price_TPEX(stock_number, year, month):
     # print(average_month_price)
     return average_month_price
 
-def dual_momentum(stock, debt):
+def dual_momentum(DB_stock, DB_debt):
     initial = float(1000)
+    stock = DB_stock.select_price()
+    debt = DB_debt.select_price()
     for i in range(1, len(stock)-1):
         stock_change = (stock[i] - stock[i-1])/stock[i-1]
         debt_change = (debt[i] - debt[i-1])/debt[i-1]
@@ -52,15 +54,17 @@ def dual_momentum(stock, debt):
             initial = initial * (1+money_change)
     return initial
 
-def stock_only_cal(stock):
+def stock_only_cal(DB_stock):
     initial = float(1000)
+    stock = DB_stock.select_price()
     for i in range(2, len(stock)):
         stock_change = (stock[i] - stock[i-1])/stock[i-1]
         initial = initial * (1+stock_change)
     return initial
 
-def debt_only_cal(debt):
+def debt_only_cal(DB_debt):
     initial = float(1000)
+    debt = DB_debt.select_price()
     for i in range(2, len(debt)):
         debt_change = (debt[i] - debt[i-1])/debt[i-1]
         initial = initial * (1+debt_change)
@@ -79,6 +83,14 @@ class DB_Operation:
         price           FLOAT    NOT NULL);'''.format(table_name="[" + self.table_name + "]")
         c.execute(str)
         self.conn.commit()
+
+    def select_price(self):
+        price = []
+        c = self.conn.cursor()
+        c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
+        for row in c.fetchall():
+            price.append(row[0])
+        return price
 
     def search_data(self, Y_M):
         c = self.conn.cursor()
@@ -134,9 +146,9 @@ if __name__ == "__main__":
                 debt.append(float(average_month_price))
                 DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
 
-    dual_result = dual_momentum(stock, debt)
-    stock_only = stock_only_cal(stock)
-    debt_only = debt_only_cal(debt)
+    dual_result = dual_momentum(DB_stock, DB_debt)
+    stock_only = stock_only_cal(DB_stock)
+    debt_only = debt_only_cal(DB_debt)
     print("2018-2021")
     print("dual_result: ", dual_result)
     print("stock_only: ", stock_only)
