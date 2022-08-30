@@ -79,6 +79,16 @@ class DB_Operation:
         price           FLOAT    NOT NULL);'''.format(table_name="[" + self.table_name + "]")
         c.execute(str)
         self.conn.commit()
+
+    def search_data(self, Y_M):
+        c = self.conn.cursor()
+        str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
+        c.execute(str)
+        rows = c.fetchall()
+        if len(rows) == 0:
+            return 1
+        else:
+            return 0
     
     def insert_data(self, Y_M, price):
         c = self.conn.cursor()
@@ -112,15 +122,17 @@ if __name__ == "__main__":
             month_str = str(j).zfill(2)
             print(year_str)
             print(month_str)
-            average_month_price = find_closing_price_TWSE("0050", year_str, month_str)
-            stock.append(float(average_month_price))
-            DB_stock.insert_data(str(i)+"_"+month_str, float(average_month_price))
+            if DB_stock.search_data(str(i)+"_"+month_str) == 1:
+                average_month_price = find_closing_price_TWSE("0050", year_str, month_str)
+                stock.append(float(average_month_price))
+                DB_stock.insert_data(str(i)+"_"+month_str, float(average_month_price))
             
             year_str = str(year)
             month_str = str(j).zfill(2)
-            average_month_price = find_closing_price_TPEX("00694B",year_str,month_str)
-            debt.append(float(average_month_price))
-            DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
+            if DB_debt.search_data(str(i)+"_"+month_str) == 1:
+                average_month_price = find_closing_price_TPEX("00694B",year_str,month_str)
+                debt.append(float(average_month_price))
+                DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
 
     dual_result = dual_momentum(stock, debt)
     stock_only = stock_only_cal(stock)
