@@ -3,6 +3,29 @@ import urllib3
 import time
 import requests
 import sqlite3
+import yfinance as yf
+
+def download_from_YAHOO(stock_name):
+    conn = sqlite3.connect('test.db')  #建立資料庫
+    c = conn.cursor()
+    str = '''CREATE TABLE IF NOT EXISTS SHY
+        (
+        Date              TEXT   ,
+        Open           FLOAT    ,
+        High           FLOAT    ,
+        Low           FLOAT    ,
+        Close           FLOAT    ,
+        Adj_Close           FLOAT    ,
+        Volume           INT    );'''
+    c.execute(str)
+    conn.commit()
+
+    #tsm = yf.Ticker('TSM')
+    tsm = yf.download(stock_name,start='2018-01-01',end='2018-01-07')
+    tsm.rename(columns = {'Adj Close':'Adj_Close'}, inplace=True)
+    tsm = tsm.round(2)
+    print(tsm)
+    tsm.to_sql('SHY', conn, if_exists='append', index=True) 
 
 def find_closing_price_TWSE(stock_number, year, month):
     http = urllib3.PoolManager()
@@ -118,39 +141,40 @@ class DB_Operation:
 
 if __name__ == "__main__":
     # stock_number = input("stock_number: ")
-    initial_money = 1000
-    year = 107
-    stock = []
-    debt = []
-    DB_debt = DB_Operation("00694B")
-    DB_debt.create_table()
-    DB_stock = DB_Operation("0050")
-    DB_stock.create_table()
+    download_from_YAHOO('TSM')
+    # initial_money = 1000
+    # year = 107
+    # stock = []
+    # debt = []
+    # DB_debt = DB_Operation("00694B")
+    # DB_debt.create_table()
+    # DB_stock = DB_Operation("0050")
+    # DB_stock.create_table()
     
 
-    for i in range(year, 110+1):
-        for j in range(1, 13):
-            year_str = str(i+1911)
-            month_str = str(j).zfill(2)
-            print(year_str)
-            print(month_str)
-            if DB_stock.search_data(str(i)+"_"+month_str) == 1:
-                average_month_price = find_closing_price_TWSE("0050", year_str, month_str)
-                stock.append(float(average_month_price))
-                DB_stock.insert_data(str(i)+"_"+month_str, float(average_month_price))
+    # for i in range(year, 110+1):
+    #     for j in range(1, 13):
+    #         year_str = str(i+1911)
+    #         month_str = str(j).zfill(2)
+    #         print(year_str)
+    #         print(month_str)
+    #         if DB_stock.search_data(str(i)+"_"+month_str) == 1:
+    #             average_month_price = find_closing_price_TWSE("0050", year_str, month_str)
+    #             stock.append(float(average_month_price))
+    #             DB_stock.insert_data(str(i)+"_"+month_str, float(average_month_price))
             
-            year_str = str(year)
-            month_str = str(j).zfill(2)
-            if DB_debt.search_data(str(i)+"_"+month_str) == 1:
-                average_month_price = find_closing_price_TPEX("00694B",year_str,month_str)
-                debt.append(float(average_month_price))
-                DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
+    #         year_str = str(year)
+    #         month_str = str(j).zfill(2)
+    #         if DB_debt.search_data(str(i)+"_"+month_str) == 1:
+    #             average_month_price = find_closing_price_TPEX("00694B",year_str,month_str)
+    #             debt.append(float(average_month_price))
+    #             DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
 
-    dual_result = dual_momentum(DB_stock, DB_debt)
-    stock_only = stock_only_cal(DB_stock)
-    debt_only = debt_only_cal(DB_debt)
-    print("2018-2021")
-    print("dual_result: ", dual_result)
-    print("stock_only: ", stock_only)
-    print("debt_only: ", debt_only)
+    # dual_result = dual_momentum(DB_stock, DB_debt)
+    # stock_only = stock_only_cal(DB_stock)
+    # debt_only = debt_only_cal(DB_debt)
+    # print("2018-2021")
+    # print("dual_result: ", dual_result)
+    # print("stock_only: ", stock_only)
+    # print("debt_only: ", debt_only)
 
