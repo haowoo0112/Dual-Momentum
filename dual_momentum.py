@@ -5,27 +5,13 @@ import requests
 import sqlite3
 import yfinance as yf
 
-def download_from_YAHOO(stock_name):
-    conn = sqlite3.connect('test.db')  #建立資料庫
-    c = conn.cursor()
-    str = '''CREATE TABLE IF NOT EXISTS SHY
-        (
-        Date              TEXT   ,
-        Open           FLOAT    ,
-        High           FLOAT    ,
-        Low           FLOAT    ,
-        Close           FLOAT    ,
-        Adj_Close           FLOAT    ,
-        Volume           INT    );'''
-    c.execute(str)
-    conn.commit()
 
-    #tsm = yf.Ticker('TSM')
-    tsm = yf.download(stock_name,start='2018-01-01',end='2018-01-07')
+def download_from_YAHOO(stock_name, start_time, end_time):
+    tsm = yf.download(stock_name,start=start_time,end=end_time)
     tsm.rename(columns = {'Adj Close':'Adj_Close'}, inplace=True)
     tsm = tsm.round(2)
-    print(tsm)
-    tsm.to_sql('SHY', conn, if_exists='append', index=True) 
+
+    return tsm
 
 def find_closing_price_TWSE(stock_number, year, month):
     http = urllib3.PoolManager()
@@ -93,47 +79,54 @@ def debt_only_cal(DB_debt):
         initial = initial * (1+debt_change)
     return initial
 
-class DB_Operation:
+class DB_Operation_daily:
     def __init__(self, table_name):
-        self.conn = sqlite3.connect('test.db')
+        self.conn = sqlite3.connect('finance_daily.db')
         self.table_name = str(table_name) 
         
     def create_table(self):
         c = self.conn.cursor()
         str = '''CREATE TABLE IF NOT EXISTS {table_name}
-        (ID INTEGER PRIMARY KEY  AUTOINCREMENT   NOT NULL,
-        Y_M              TEXT   NOT NULL,
-        price           FLOAT    NOT NULL);'''.format(table_name="[" + self.table_name + "]")
+        (Date              TEXT   ,
+        Open           FLOAT    ,
+        High           FLOAT    ,
+        Low           FLOAT    ,
+        Close           FLOAT    ,
+        Adj_Close           FLOAT    ,
+        Volume           INT    );'''.format(table_name="[" + self.table_name + "]")
         c.execute(str)
         self.conn.commit()
 
-    def select_price(self):
-        price = []
-        c = self.conn.cursor()
-        c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
-        for row in c.fetchall():
-            price.append(row[0])
-        return price
+    def pandas_dataframe_to_sqlite(self, finance_name):
+        finance_name.to_sql(self.table_name, self.conn, if_exists='replace', index=True) 
 
-    def search_data(self, Y_M):
-        c = self.conn.cursor()
-        str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
-        c.execute(str)
-        rows = c.fetchall()
-        if len(rows) == 0:
-            return 1
-        else:
-            return 0
+    # def select_price(self):
+    #     price = []
+    #     c = self.conn.cursor()
+    #     c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
+    #     for row in c.fetchall():
+    #         price.append(row[0])
+    #     return price
+
+    # def search_data(self, Y_M):
+    #     c = self.conn.cursor()
+    #     str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
+    #     c.execute(str)
+    #     rows = c.fetchall()
+    #     if len(rows) == 0:
+    #         return 1
+    #     else:
+    #         return 0
     
-    def insert_data(self, Y_M, price):
-        c = self.conn.cursor()
-        str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
-        c.execute(str)
-        rows = c.fetchall()
-        if len(rows) == 0:
-            c.execute('''INSERT INTO {table_name} (Y_M,price) \
-            VALUES ("{Y_M}",{price})'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M, price = price))
-        self.conn.commit()
+    # def insert_data(self, Y_M, price):
+    #     c = self.conn.cursor()
+    #     str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
+    #     c.execute(str)
+    #     rows = c.fetchall()
+    #     if len(rows) == 0:
+    #         c.execute('''INSERT INTO {table_name} (Y_M,price) \
+    #         VALUES ("{Y_M}",{price})'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M, price = price))
+    #     self.conn.commit()
 
     def connnect_close(self):
         self.conn.close()
@@ -141,7 +134,11 @@ class DB_Operation:
 
 if __name__ == "__main__":
     # stock_number = input("stock_number: ")
-    download_from_YAHOO('TSM')
+    tsm = download_from_YAHOO('TSM', '2018-01-03', '2018-01-11')
+    print(tsm)
+    DB_tsm = DB_Operation_daily('TSM')
+    DB_tsm.create_table()
+    DB_tsm.pandas_dataframe_to_sqlite(tsm)
     # initial_money = 1000
     # year = 107
     # stock = []
