@@ -77,6 +77,7 @@ def debt_only_cal(DB_debt):
     for i in range(2, len(debt)):
         debt_change = (debt[i] - debt[i-1])/debt[i-1]
         initial = initial * (1+debt_change)
+        
     return initial
 
 class DB_Operation_daily:
@@ -100,78 +101,92 @@ class DB_Operation_daily:
     def pandas_dataframe_to_sqlite(self, finance_name):
         finance_name.to_sql(self.table_name, self.conn, if_exists='replace', index=True) 
 
-    # def select_price(self):
-    #     price = []
-    #     c = self.conn.cursor()
-    #     c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
-    #     for row in c.fetchall():
-    #         price.append(row[0])
-    #     return price
-
-    # def search_data(self, Y_M):
-    #     c = self.conn.cursor()
-    #     str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
-    #     c.execute(str)
-    #     rows = c.fetchall()
-    #     if len(rows) == 0:
-    #         return 1
-    #     else:
-    #         return 0
-    
-    # def insert_data(self, Y_M, price):
-    #     c = self.conn.cursor()
-    #     str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
-    #     c.execute(str)
-    #     rows = c.fetchall()
-    #     if len(rows) == 0:
-    #         c.execute('''INSERT INTO {table_name} (Y_M,price) \
-    #         VALUES ("{Y_M}",{price})'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M, price = price))
-    #     self.conn.commit()
+    def select_Date(self, Y_M):
+        price = []
+        c = self.conn.cursor()
+        c.execute('''SELECT Close FROM {table_name} WHERE Date LIKE "{strr}%"'''.format(table_name="[" + self.table_name + "]", strr = Y_M))
+        for row in c.fetchall():
+            price.append(row[0])
+        return price
 
     def connnect_close(self):
         self.conn.close()
 
+class DB_Operation_month:
+    def __init__(self, table_name):
+        self.conn = sqlite3.connect('finance_month.db')
+        self.table_name = str(table_name) 
+        
+    def create_table(self):
+        c = self.conn.cursor()
+        str = '''CREATE TABLE IF NOT EXISTS {table_name}
+        (Y_M              TEXT   ,
+        price           FLOAT);'''.format(table_name="[" + self.table_name + "]")
+        c.execute(str)
+        self.conn.commit()
+
+    def insert_data(self, Y_M, price):
+        c = self.conn.cursor()
+        str = '''SELECT * FROM {table_name} WHERE Y_M="{Y_M}";'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M)
+        c.execute(str)
+        rows = c.fetchall()
+        if len(rows) == 0:
+            c.execute('''INSERT INTO {table_name} (Y_M,price) \
+            VALUES ("{Y_M}",{price})'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M, price = price))
+        self.conn.commit()
+
+    def select_price(self):
+        price = []
+        c = self.conn.cursor()
+        c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
+        for row in c.fetchall():
+            price.append(row[0])
+        return price
+
+    def connnect_close(self):
+        self.conn.close()
 
 if __name__ == "__main__":
     # stock_number = input("stock_number: ")
-    tsm = download_from_YAHOO('TSM', '2018-01-03', '2018-01-11')
+    tsm = download_from_YAHOO('0050.TW', '2008-01-01', '2022-01-01')
     print(tsm)
-    DB_tsm = DB_Operation_daily('TSM')
-    DB_tsm.create_table()
-    DB_tsm.pandas_dataframe_to_sqlite(tsm)
-    # initial_money = 1000
-    # year = 107
-    # stock = []
-    # debt = []
-    # DB_debt = DB_Operation("00694B")
-    # DB_debt.create_table()
-    # DB_stock = DB_Operation("0050")
-    # DB_stock.create_table()
+    DB_0050_daily = DB_Operation_daily('0050.TW')
+    DB_0050_daily.create_table()
+    DB_0050_daily.pandas_dataframe_to_sqlite(tsm)
+
+    for i in range(2008, 2021+1):
+         for j in range(1, 13):
+            month_str = str(j).zfill(2)
+            price = DB_0050_daily.select_Date(str(i)+"-"+month_str)
+            average_month_price = sum(price) / len(price)
+            average_month_price = round(average_month_price,2)
+
+            DB_0050_month = DB_Operation_month('0050.TW')
+            DB_0050_month.create_table()
+            DB_0050_month.insert_data(str(i)+"-"+month_str, float(average_month_price))
     
+    tsm = download_from_YAHOO('SHY', '2008-01-01', '2022-01-01')
+    print(tsm)
+    DB_SHY_daily = DB_Operation_daily('SHY')
+    DB_SHY_daily.create_table()
+    DB_SHY_daily.pandas_dataframe_to_sqlite(tsm)
 
-    # for i in range(year, 110+1):
-    #     for j in range(1, 13):
-    #         year_str = str(i+1911)
-    #         month_str = str(j).zfill(2)
-    #         print(year_str)
-    #         print(month_str)
-    #         if DB_stock.search_data(str(i)+"_"+month_str) == 1:
-    #             average_month_price = find_closing_price_TWSE("0050", year_str, month_str)
-    #             stock.append(float(average_month_price))
-    #             DB_stock.insert_data(str(i)+"_"+month_str, float(average_month_price))
-            
-    #         year_str = str(year)
-    #         month_str = str(j).zfill(2)
-    #         if DB_debt.search_data(str(i)+"_"+month_str) == 1:
-    #             average_month_price = find_closing_price_TPEX("00694B",year_str,month_str)
-    #             debt.append(float(average_month_price))
-    #             DB_debt.insert_data(str(i)+"_"+month_str, float(average_month_price))
+    for i in range(2008, 2021+1):
+         for j in range(1, 13):
+            month_str = str(j).zfill(2)
+            price = DB_SHY_daily.select_Date(str(i)+"-"+month_str)
+            average_month_price = sum(price) / len(price)
+            average_month_price = round(average_month_price,2)
 
-    # dual_result = dual_momentum(DB_stock, DB_debt)
-    # stock_only = stock_only_cal(DB_stock)
-    # debt_only = debt_only_cal(DB_debt)
-    # print("2018-2021")
-    # print("dual_result: ", dual_result)
-    # print("stock_only: ", stock_only)
-    # print("debt_only: ", debt_only)
+            DB_SHY_month = DB_Operation_month('SHY')
+            DB_SHY_month.create_table()
+            DB_SHY_month.insert_data(str(i)+"-"+month_str, float(average_month_price))
+    
+    dual_result = dual_momentum(DB_0050_month, DB_SHY_month)
+    stock_only = stock_only_cal(DB_0050_month)
+    debt_only = debt_only_cal(DB_SHY_month)
+    print("2008-2021")
+    print("dual_result: ", dual_result)
+    print("stock_only: ", stock_only)
+    print("debt_only: ", debt_only)
 
