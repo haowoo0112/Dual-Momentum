@@ -48,10 +48,10 @@ def find_closing_price_TPEX(stock_number, year, month):
     # print(average_month_price)
     return average_month_price
 
-def dual_momentum(DB_stock, DB_debt):
+def dual_momentum(DB_stock, DB_debt, start_time, end_time):
     initial = float(1000)
-    stock = DB_stock.select_price()
-    debt = DB_debt.select_price()
+    stock = DB_stock.select_price(start_time, end_time)
+    debt = DB_debt.select_price(start_time, end_time)
     for i in range(1, len(stock)-1):
         stock_change = (stock[i] - stock[i-1])/stock[i-1]
         debt_change = (debt[i] - debt[i-1])/debt[i-1]
@@ -63,17 +63,17 @@ def dual_momentum(DB_stock, DB_debt):
             initial = initial * (1+money_change)
     return initial
 
-def stock_only_cal(DB_stock):
+def stock_only_cal(DB_stock, start_time, end_time):
     initial = float(1000)
-    stock = DB_stock.select_price()
+    stock = DB_stock.select_price(start_time, end_time)
     for i in range(2, len(stock)):
         stock_change = (stock[i] - stock[i-1])/stock[i-1]
         initial = initial * (1+stock_change)
     return initial
 
-def debt_only_cal(DB_debt):
+def debt_only_cal(DB_debt, start_time, end_time):
     initial = float(1000)
-    debt = DB_debt.select_price()
+    debt = DB_debt.select_price(start_time, end_time)
     for i in range(2, len(debt)):
         debt_change = (debt[i] - debt[i-1])/debt[i-1]
         initial = initial * (1+debt_change)
@@ -135,57 +135,66 @@ class DB_Operation_month:
             VALUES ("{Y_M}",{price})'''.format(table_name="[" + self.table_name + "]", Y_M= Y_M, price = price))
         self.conn.commit()
 
-    def select_price(self):
+    def select_price(self, start_time, end_time):
         price = []
-        c = self.conn.cursor()
-        c.execute("SELECT price FROM {table_name}".format(table_name="[" + self.table_name + "]"))
-        for row in c.fetchall():
-            price.append(row[0])
+        start_year = int(start_time[:4])
+        end_year = int(end_time[:4])
+        for i in range(start_year, end_year+1): 
+            for j in range(1,13):
+                month_str = str(j).zfill(2)
+                c = self.conn.cursor()
+                c.execute('''SELECT price FROM {table_name} WHERE Y_M LIKE "{strr}%"'''.format(table_name="[" + self.table_name + "]", strr = str(i)+'-'+month_str))
+                for row in c.fetchall():
+                    price.append(row[0])
         return price
 
     def connnect_close(self):
         self.conn.close()
 
 if __name__ == "__main__":
-    # stock_number = input("stock_number: ")
-    tsm = download_from_YAHOO('0050.TW', '2008-01-01', '2022-01-01')
-    print(tsm)
-    DB_0050_daily = DB_Operation_daily('0050.TW')
+    stock_name = '0050.TW'
+    debt_name = 'SHY'
+    start_time = '2008-01'
+    end_time = '2021-12'
+    start_year = int(start_time[:4])
+    end_year = int(end_time[:4])
+
+    tsm = download_from_YAHOO(stock_name, start_time+'-01', end_time+'-31')
+    DB_0050_daily = DB_Operation_daily(stock_name)
     DB_0050_daily.create_table()
     DB_0050_daily.pandas_dataframe_to_sqlite(tsm)
 
-    for i in range(2008, 2021+1):
+    for i in range(start_year, end_year+1):
          for j in range(1, 13):
             month_str = str(j).zfill(2)
             price = DB_0050_daily.select_Date(str(i)+"-"+month_str)
             average_month_price = sum(price) / len(price)
             average_month_price = round(average_month_price,2)
 
-            DB_0050_month = DB_Operation_month('0050.TW')
+            DB_0050_month = DB_Operation_month(stock_name)
             DB_0050_month.create_table()
             DB_0050_month.insert_data(str(i)+"-"+month_str, float(average_month_price))
     
-    tsm = download_from_YAHOO('SHY', '2008-01-01', '2022-01-01')
-    print(tsm)
-    DB_SHY_daily = DB_Operation_daily('SHY')
+    tsm = download_from_YAHOO(debt_name, start_time+'-01', end_time+'-31')
+    DB_SHY_daily = DB_Operation_daily(debt_name)
     DB_SHY_daily.create_table()
     DB_SHY_daily.pandas_dataframe_to_sqlite(tsm)
 
-    for i in range(2008, 2021+1):
+    for i in range(start_year, end_year+1):
          for j in range(1, 13):
             month_str = str(j).zfill(2)
             price = DB_SHY_daily.select_Date(str(i)+"-"+month_str)
             average_month_price = sum(price) / len(price)
             average_month_price = round(average_month_price,2)
 
-            DB_SHY_month = DB_Operation_month('SHY')
+            DB_SHY_month = DB_Operation_month(debt_name)
             DB_SHY_month.create_table()
             DB_SHY_month.insert_data(str(i)+"-"+month_str, float(average_month_price))
     
-    dual_result = dual_momentum(DB_0050_month, DB_SHY_month)
-    stock_only = stock_only_cal(DB_0050_month)
-    debt_only = debt_only_cal(DB_SHY_month)
-    print("2008-2021")
+    dual_result = dual_momentum(DB_0050_month, DB_SHY_month, start_time, end_time)
+    stock_only = stock_only_cal(DB_0050_month, start_time, end_time)
+    debt_only = debt_only_cal(DB_SHY_month, start_time, end_time)
+    print(str(start_year)+'-'+str(end_year))
     print("dual_result: ", dual_result)
     print("stock_only: ", stock_only)
     print("debt_only: ", debt_only)
